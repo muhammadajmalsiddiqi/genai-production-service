@@ -1,37 +1,28 @@
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
-import uvicorn
-import asyncio
+from fastapi import FastAPI, Request
+from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
+from fastapi.responses import Response
 import time
 
-app = FastAPI(title="GenAI Production Service", version="1.0.0")
+app = FastAPI()
 
-class InferenceRequest(BaseModel):
-    prompt: str
-    max_tokens: int = 100
+# Metrics
+REQUEST_COUNT = Counter("http_requests_total", "Total HTTP Requests", ["method", "endpoint"])
+REQUEST_LATENCY = Histogram("http_request_duration_seconds", "HTTP Request Latency", ["endpoint"])
 
-class InferenceResponse(BaseModel):
-    generated_text: str
-    latency_ms: float
-
-@app.get("/")
-async def health_check():
-    return {"status": "healthy", "model_loaded": True}
-
-@app.post("/generate", response_model=InferenceResponse)
-async def generate_text(request: InferenceRequest):
-    """High-performance async inference endpoint."""
+@app.middleware("http")
+async def add_metrics(request: Request, call_next):
     start_time = time.time()
+    endpoint = request.url.path
+    REQUEST_COUNT.labels(method=request.method, endpoint=endpoint).inc()
     
-    # Simulate async model inference with request batching potential
-    await asyncio.sleep(0.1) 
+    response = await call_next(request)
     
-    latency = (time.time() - start_time) * 1000
-    return InferenceResponse(
-        generated_text=f"AI response to: {request.prompt}",
-        latency_ms=latency
-    )
+    latency = time.time() - start_time
+    REQUEST_LATENCY.labels(endpoint=endpoint).observe(latency)
+    return response
 
-if __name__ == "__main__":
-    print("GenAI Production Service starting on http://0.0.0.0:8000")
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+@app.get("/metrics")
+def metrics():
+    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
+
+# ... rest of the API logic from previous version
