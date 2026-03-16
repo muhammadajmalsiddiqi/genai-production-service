@@ -3,38 +3,56 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-009688.svg)](https://fastapi.tiangolo.com/)
+[![Docker](https://img.shields.io/badge/Docker-Multi--stage-blue?logo=docker)](https://www.docker.com/)
 
-A production-ready FastAPI service for deploying and monitoring Generative AI models. This repository implements best practices for MLOps, including structured logging, health checks, and real-time monitoring with Prometheus.
+A production-ready FastAPI service for deploying and monitoring Generative AI models. This repository implements industry-standard MLOps practices, featuring asynchronous task processing, rate limiting, and exhaustive monitoring.
 
 ## 🌟 Key Features
-- **High Performance**: Built on FastAPI and Uvicorn for asynchronous, high-throughput inference.
-- **MLOps Monitoring**: Integrated Prometheus metrics for tracking latency, throughput, and model-specific performance.
-- **Production-Grade**: Multi-stage Docker builds optimized for size and security.
-- **Robust Error Handling**: Standardized API responses and comprehensive middleware for request tracking.
-- **Scalable Architecture**: Designed to be deployed behind a load balancer (e.g., Nginx, Traefik) or within a Kubernetes cluster.
+- **Asynchronous Processing**: Integrated **Celery & Redis** for handling long-running inference tasks.
+- **Rate Limiting**: Built-in protection against API abuse using `SlowAPI`.
+- **Advanced Monitoring**: Real-time metrics via **Prometheus** and ready-to-use **Grafana** dashboards.
+- **Optimized Docker**: Multi-stage builds for minimal image size and enhanced security.
+- **Automated API Docs**: Fully compliant OpenAPI/Swagger documentation.
+
+## 📈 Monitoring & Observability
+
+### Prometheus Metrics
+Metrics are exposed at `/metrics`:
+- `http_requests_total`: Request count by endpoint.
+- `model_inference_seconds`: Latency of the model forward pass.
+- `rate_limit_exceeded_total`: Count of blocked requests.
+
+### Grafana Dashboard
+A sample dashboard configuration is provided in `monitoring/grafana_dashboard.json`.
 
 ## 🛠️ Installation
 
 ```bash
 git clone https://github.com/dirk-kuijprs/genai-production-service.git
 cd genai-production-service
-pip install -r requirements.txt
+pip install -r requirements.txt celery redis slowapi
 ```
 
-## 🚀 Running with Docker
+## 🚀 Running the Service
 
+### Using Docker Compose (Recommended)
 ```bash
-docker build -t genai-service .
-docker run -p 8000:8000 genai-service
+docker-compose up --build
 ```
 
-Access the API documentation at `http://localhost:8000/docs`.
+### Manual Execution
+1. Start Redis: `redis-server`
+2. Start Celery: `celery -A main.celery_app worker --loglevel=info`
+3. Start FastAPI: `uvicorn main:app --host 0.0.0.0 --port 8000`
 
-## 📈 Monitoring
-Metrics are exposed at the `/metrics` endpoint for Prometheus scraping.
-- `http_requests_total`: Total number of requests by method and endpoint.
-- `model_inference_seconds`: Time spent in the model's forward pass.
-- `model_predictions_total`: Total count of predictions served.
+## 📡 API Endpoints
+
+| Method | Endpoint | Description | Rate Limit |
+|--------|----------|-------------|------------|
+| `GET` | `/health` | Service health check | 5/min |
+| `POST` | `/generate` | Synchronous text generation | 10/min |
+| `POST` | `/generate-async` | Asynchronous task submission | N/A |
+| `GET` | `/metrics` | Prometheus metrics | N/A |
 
 ## 👨‍💻 Author
 **Dirk Kuijprs**  
